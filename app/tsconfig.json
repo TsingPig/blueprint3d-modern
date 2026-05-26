@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2018",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -13,16 +17,40 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "@/*": ["./*"],
-      "@blueprint3d/*": ["../src/*"],
-      "three": ["./node_modules/@types/three/index.d.ts"],
-      "three/*": ["./node_modules/@types/three/*"],
-      "animejs": ["./node_modules/animejs"],
-      "animejs/*": ["./node_modules/animejs/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@blueprint3d/*": [
+        "../src/*"
+      ],
+      "three": [
+        "./node_modules/@types/three/index.d.ts"
+      ],
+      "three/*": [
+        "./node_modules/@types/three/*"
+      ],
+      "animejs": [
+        "./node_modules/animejs"
+      ],
+      "animejs/*": [
+        "./node_modules/animejs/*"
+      ]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "next-env.d.ts",
+    ".next-dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

@@ -31,16 +31,23 @@ export function Settings({ onUnitChange, languageMap = {}, isLanguageOption }: S
 
   // Load saved unit from localStorage on mount
   useEffect(() => {
-    const savedUnit = localStorage.getItem('dimensionUnit')
-    if (savedUnit) {
-      setSelectedUnit(savedUnit)
+    try {
+      const savedUnit = localStorage.getItem('dimensionUnit')
+      if (savedUnit) {
+        setSelectedUnit(savedUnit)
+      }
+    } catch (error) {
+      console.warn('[Settings] Failed to read dimensionUnit from localStorage', error)
     }
   }, [])
 
   const handleUnitChange = (unit: string) => {
     setSelectedUnit(unit)
-    // Save to localStorage
-    localStorage.setItem('dimensionUnit', unit)
+    try {
+      localStorage.setItem('dimensionUnit', unit)
+    } catch (error) {
+      console.warn('[Settings] Failed to persist dimensionUnit', error)
+    }
     // Notify parent component
     onUnitChange?.(unit)
     // Dispatch custom event for same-window listeners (like BedSizeInput)

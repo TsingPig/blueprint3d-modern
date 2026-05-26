@@ -76,6 +76,7 @@ web_modules/
 
 # Next.js build output
 .next
+.next-dev
 out
 
 # Nuxt.js build / generate output
@@ -137,3 +138,8 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Repo-local toolchain
+.tools/
+.npm-cache/
+.pnpm-store/

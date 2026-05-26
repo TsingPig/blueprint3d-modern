@@ -2,7 +2,6 @@
 
 import { TemplateOption } from "@/lib/blueprint-templates"
 import { useTranslations } from 'next-intl'
-import Image from 'next/image'
 
 interface TemplateCardProps {
   template: TemplateOption
@@ -19,11 +18,11 @@ export function TemplateCard({ template, onClick }: TemplateCardProps) {
     >
       {/* Preview Image */}
       <div className="relative aspect-[1/1] w-full overflow-hidden bg-muted">
-        <Image
+        <img
           src={template.preview}
-          fill
           alt={t(`templates.${template.id}.name`)}
-          className="w-full h-full object-cover"
+          loading="lazy"
+          className="h-full w-full object-cover"
         />
       </div>
 

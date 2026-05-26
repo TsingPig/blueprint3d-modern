@@ -18,26 +18,30 @@ export function TouchHelp({ className }: TouchHelpProps) {
   const [isDismissed, setIsDismissed] = useState(false)
 
   useEffect(() => {
-    // Check if user has already seen this
-    const hasSeenHelp = localStorage.getItem('blueprint3d-touch-help-seen')
+    try {
+      const hasSeenHelp = localStorage.getItem('blueprint3d-touch-help-seen')
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 
-    // Only show on mobile devices and if not previously dismissed
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+      if (isMobile && !hasSeenHelp && !isDismissed) {
+        const timer = setTimeout(() => {
+          setIsVisible(true)
+        }, 1000)
 
-    if (isMobile && !hasSeenHelp && !isDismissed) {
-      // Show after a short delay
-      const timer = setTimeout(() => {
-        setIsVisible(true)
-      }, 1000)
-
-      return () => clearTimeout(timer)
+        return () => clearTimeout(timer)
+      }
+    } catch (error) {
+      console.warn('[TouchHelp] Failed to access localStorage', error)
     }
   }, [isDismissed])
 
   const handleDismiss = () => {
     setIsVisible(false)
     setIsDismissed(true)
-    localStorage.setItem('blueprint3d-touch-help-seen', 'true')
+    try {
+      localStorage.setItem('blueprint3d-touch-help-seen', 'true')
+    } catch (error) {
+      console.warn('[TouchHelp] Failed to persist help dismissal', error)
+    }
   }
 
   if (!isVisible) return null

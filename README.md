@@ -102,6 +102,36 @@ cd app && pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+The default development script uses `next dev` for stability. If you specifically want Turbopack, run `pnpm dev:turbopack` inside `app/` or from the repo root.
+
+On this repository, development output is isolated in `.next-dev/` so it does not conflict with production builds in `.next/`.
+
+### Windows: Repo-Local Toolchain
+
+If you want Node.js, pnpm, and caches to stay inside this repository, use the PowerShell scripts in [scripts/dev-local.ps1](scripts/dev-local.ps1) and [scripts/activate-local-env.ps1](scripts/activate-local-env.ps1).
+
+For the production GUI on Windows, run [start-frontend.cmd](start-frontend.cmd). It starts the frontend on port 3000 and opens the app in a dedicated Chrome 3D profile with WebGL enabled.
+
+```powershell
+# One-time setup in the current terminal
+Set-ExecutionPolicy -Scope Process Bypass -Force
+& .\scripts\dev-local.ps1 -SetupOnly
+
+# Start the demo app in the background with the repo-local toolchain
+& .\scripts\dev-local.ps1
+
+# Stop the background dev server
+& .\scripts\dev-local.ps1 -Stop
+
+# Run the dev server in the current terminal instead
+& .\scripts\dev-local.ps1 -Foreground
+
+# Or activate the local toolchain for manual pnpm commands in this shell
+. .\scripts\activate-local-env.ps1
+```
+
+The scripts download a portable Node.js runtime into `.tools/`, keep npm/pnpm caches inside the repository, and write background dev logs to `.tools/dev-server.stdout.log` and `.tools/dev-server.stderr.log`.
+
 ### Production Build
 
 ```bash

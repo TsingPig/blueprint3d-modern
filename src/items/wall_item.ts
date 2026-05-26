@@ -1,9 +1,9 @@
 import * as THREE from 'three'
 import { Utils } from '../core/utils'
 import { HalfEdge } from '../model/half_edge'
-import { Model } from '../model/model'
+import type { Model } from '../model/model'
 import { Item } from './item'
-import { Metadata } from './metadata'
+import type { Metadata } from './metadata'
 
 /**
  * A Wall Item is an entity to be placed related to a wall.

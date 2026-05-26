@@ -16,6 +16,7 @@ import { TouchHelp } from './TouchHelp'
 import { ControlsHelp } from './ControlsHelp'
 import DefaultFloorplan from '@blueprint3d/templates/default.json'
 import { blueprintStorage } from '@/services/storage'
+import { Button } from '@/components/ui/button'
 
 import { Blueprint3d } from '@blueprint3d/blueprint3d'
 import { floorplannerModes } from '@blueprint3d/floorplanner/floorplanner_view'
@@ -42,6 +43,61 @@ export interface Blueprint3DAppConfig {
 
 interface Blueprint3DAppBaseProps {
   config?: Blueprint3DAppConfig
+}
+
+const chrome3DLaunchHint = '当前浏览器没有启用 WebGL。请用 start-frontend.cmd 以 Chrome 3D 模式启动。'
+
+function getWebGLPreflightError(): string | null {
+  try {
+    const canvas = document.createElement('canvas')
+    const gl =
+      canvas.getContext('webgl2') ||
+      canvas.getContext('webgl') ||
+      canvas.getContext('experimental-webgl')
+
+    return gl ? null : chrome3DLaunchHint
+  } catch {
+    return chrome3DLaunchHint
+  }
+}
+
+function isWebGLStartupError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /webgl|webglrenderer|gl context|error creating webgl context/i.test(message)
+}
+
+function safeGetLocalStorageItem(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key)
+  } catch (error) {
+    console.warn(`[Blueprint3DAppBase] Failed to read localStorage key "${key}"`, error)
+    return null
+  }
+}
+
+function deleteIndexedDbDatabase(name: string): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof indexedDB === 'undefined') {
+      resolve()
+      return
+    }
+
+    const request = indexedDB.deleteDatabase(name)
+    request.onsuccess = () => resolve()
+    request.onerror = () => resolve()
+    request.onblocked = () => resolve()
+  })
+}
+
+async function clearStartupCache(): Promise<void> {
+  try {
+    window.localStorage.removeItem('dimensionUnit')
+    window.localStorage.removeItem('blueprint3d-touch-help-seen')
+  } catch (error) {
+    console.warn('[Blueprint3DAppBase] Failed to clear startup localStorage cache', error)
+  }
+
+  await deleteIndexedDbDatabase('blueprint3d_templates')
 }
 
 export function Blueprint3DAppBase({ config = {} }: Blueprint3DAppBaseProps) {
@@ -80,6 +136,9 @@ export function Blueprint3DAppBase({ config = {} }: Blueprint3DAppBaseProps) {
   const [itemsLoading, setItemsLoading] = useState(0)
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d')
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [startupError, setStartupError] = useState<string | null>(null)
+  const [resettingStartupError, setResettingStartupError] = useState(false)
+  const startupRetryRef = useRef(false)
 
   const [currentBlueprint, setCurrentBlueprint] = useState<{
     id: string
@@ -96,88 +155,35 @@ export function Blueprint3DAppBase({ config = {} }: Blueprint3DAppBaseProps) {
     return enableWheelZoom
   }, [enableWheelZoom])
 
+  const handleResetLocalData = useCallback(async () => {
+    setResettingStartupError(true)
+
+    try {
+      await clearStartupCache()
+    } finally {
+      window.location.reload()
+    }
+  }, [])
+
   // Initialize Blueprint3d
   useEffect(() => {
     if (!viewerRef.current || blueprint3dRef.current) return
 
-    const savedUnit = localStorage.getItem('dimensionUnit')
-    if (savedUnit) {
-      Configuration.setValue(configDimUnit, savedUnit)
-    }
+    let cancelled = false
 
-    const opts = {
-      floorplannerElement: 'floorplanner-canvas',
-      threeElement: '#viewer',
-      textureDir: '/models/textures/',
-      widget: false,
-      enableWheelZoom: getWheelZoomEnabled(),
-      alwaysSpin
-    }
-
-    const blueprint3d = new Blueprint3d(opts)
-    blueprint3dRef.current = blueprint3d
-
-    if (onBlueprint3DReady) {
-      onBlueprint3DReady(blueprint3d)
-    }
-
-    blueprint3d.three.itemSelectedCallbacks.add((item) => {
-      setSelectedItem(item)
-      setTextureType(null)
-    })
-
-    blueprint3d.three.itemUnselectedCallbacks.add(() => {
-      setSelectedItem(null)
-    })
-
-    blueprint3d.three.wallClicked.add((halfEdge) => {
-      setCurrentTarget(halfEdge)
-      setTextureType('wall')
-      setSelectedItem(null)
-    })
-
-    blueprint3d.three.floorClicked.add((room) => {
-      setCurrentTarget(room)
-      setTextureType('floor')
-      setSelectedItem(null)
-    })
-
-    blueprint3d.three.nothingClicked.add(() => {
-      setTextureType(null)
-      setCurrentTarget(null)
-    })
-
-    blueprint3d.model.scene.itemLoadingCallbacks.add(() => {
-      setItemsLoading((prev) => prev + 1)
-    })
-
-    blueprint3d.model.scene.itemLoadedCallbacks.add((item) => {
-      setItemsLoading((prev) => prev - 1)
-      const loadingToasts = loadingToastsRef.current
-      if (loadingToasts.length > 0) {
-        const { toastId, itemName } = loadingToasts.shift()!
-        toast.success(tItems('loadedSuccess', { name: itemName }), { id: toastId })
-      }
-    })
-
-    blueprint3d.model.scene.itemLoadErrorCallbacks.add(() => {
-      setItemsLoading((prev) => prev - 1)
-      const loadingToasts = loadingToastsRef.current
-      if (loadingToasts.length > 0) {
-        const { toastId, itemName } = loadingToasts.shift()!
-        toast.error(tItems('loadError', { name: itemName }), { id: toastId })
-      }
-    })
-
-    // Load floorplan from IndexedDB or use default
-    const loadInitialFloorplan = async () => {
+    const loadInitialFloorplan = async (
+      blueprint3d: Blueprint3d,
+      ignoreCachedTemplate: boolean
+    ) => {
       try {
-        const { blueprintTemplateDB } = await import('@blueprint3d/indexdb/blueprint-template')
-        const savedTemplate = await blueprintTemplateDB.getTemplate()
+        if (!ignoreCachedTemplate) {
+          const { blueprintTemplateDB } = await import('@blueprint3d/indexdb/blueprint-template')
+          const savedTemplate = await blueprintTemplateDB.getTemplate()
 
-        if (savedTemplate) {
-          blueprint3d.model.loadSerialized(JSON.stringify(savedTemplate))
-          return
+          if (savedTemplate) {
+            blueprint3d.model.loadSerialized(JSON.stringify(savedTemplate))
+            return
+          }
         }
 
         const { getModeConfig } = await import('@blueprint3d/config/modes')
@@ -189,12 +195,125 @@ export function Blueprint3DAppBase({ config = {} }: Blueprint3DAppBaseProps) {
       }
     }
 
-    loadInitialFloorplan()
+    const initializeBlueprint = async (ignoreCachedTemplate = false) => {
+      try {
+        setStartupError(null)
+
+        const savedUnit = safeGetLocalStorageItem('dimensionUnit')
+        if (savedUnit) {
+          Configuration.setValue(configDimUnit, savedUnit)
+        }
+
+        const webGLPreflightError = getWebGLPreflightError()
+        if (webGLPreflightError) {
+          setStartupError(webGLPreflightError)
+          return
+        }
+
+        const opts = {
+          floorplannerElement: 'floorplanner-canvas',
+          threeElement: '#viewer',
+          textureDir: '/models/textures/',
+          widget: false,
+          enableWheelZoom: getWheelZoomEnabled(),
+          alwaysSpin
+        }
+
+        const blueprint3d = new Blueprint3d(opts)
+        if (cancelled) {
+          return
+        }
+
+        blueprint3dRef.current = blueprint3d
+
+        if (onBlueprint3DReady) {
+          onBlueprint3DReady(blueprint3d)
+        }
+
+        blueprint3d.three.itemSelectedCallbacks.add((item) => {
+          setSelectedItem(item)
+          setTextureType(null)
+        })
+
+        blueprint3d.three.itemUnselectedCallbacks.add(() => {
+          setSelectedItem(null)
+        })
+
+        blueprint3d.three.wallClicked.add((halfEdge) => {
+          setCurrentTarget(halfEdge)
+          setTextureType('wall')
+          setSelectedItem(null)
+        })
+
+        blueprint3d.three.floorClicked.add((room) => {
+          setCurrentTarget(room)
+          setTextureType('floor')
+          setSelectedItem(null)
+        })
+
+        blueprint3d.three.nothingClicked.add(() => {
+          setTextureType(null)
+          setCurrentTarget(null)
+        })
+
+        blueprint3d.model.scene.itemLoadingCallbacks.add(() => {
+          setItemsLoading((prev) => prev + 1)
+        })
+
+        blueprint3d.model.scene.itemLoadedCallbacks.add(() => {
+          setItemsLoading((prev) => prev - 1)
+          const loadingToasts = loadingToastsRef.current
+          if (loadingToasts.length > 0) {
+            const { toastId, itemName } = loadingToasts.shift()!
+            toast.success(tItems('loadedSuccess', { name: itemName }), { id: toastId })
+          }
+        })
+
+        blueprint3d.model.scene.itemLoadErrorCallbacks.add(() => {
+          setItemsLoading((prev) => prev - 1)
+          const loadingToasts = loadingToastsRef.current
+          if (loadingToasts.length > 0) {
+            const { toastId, itemName } = loadingToasts.shift()!
+            toast.error(tItems('loadError', { name: itemName }), { id: toastId })
+          }
+        })
+
+        await loadInitialFloorplan(blueprint3d, ignoreCachedTemplate)
+        startupRetryRef.current = false
+      } catch (error) {
+        console.error('[Blueprint3DAppBase] Initialization failed:', error)
+        blueprint3dRef.current = null
+        viewerRef.current?.replaceChildren()
+
+        if (cancelled) {
+          return
+        }
+
+        if (isWebGLStartupError(error)) {
+          setStartupError(chrome3DLaunchHint)
+          return
+        }
+
+        if (!startupRetryRef.current) {
+          startupRetryRef.current = true
+          console.warn(
+            '[Blueprint3DAppBase] Retrying initialization after clearing startup cache'
+          )
+          await clearStartupCache()
+          await initializeBlueprint(true)
+          return
+        }
+
+        setStartupError(error instanceof Error ? error.message : 'Unknown initialization error')
+      }
+    }
+
+    initializeBlueprint()
 
     return () => {
-      // Cleanup if needed
+      cancelled = true
     }
-  }, [getWheelZoomEnabled, tItems, mode, onBlueprint3DReady])
+  }, [alwaysSpin, getWheelZoomEnabled, tItems, mode, onBlueprint3DReady])
 
   // Update wheel zoom setting when it changes
   useEffect(() => {
@@ -524,6 +643,52 @@ export function Blueprint3DAppBase({ config = {} }: Blueprint3DAppBaseProps) {
     [currentTarget]
   )
 
+  if (startupError) {
+    const isWebGLPreflightError = startupError === chrome3DLaunchHint
+
+    return (
+      <div className="flex h-full min-h-screen w-full items-center justify-center bg-background px-6">
+        <div className="w-full max-w-xl rounded-xl border border-border bg-card p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-foreground">
+            {isWebGLPreflightError ? '需要 Chrome 3D 模式' : 'Blueprint3D failed to start'}
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {isWebGLPreflightError ? (
+              <>
+                当前浏览器没有启用 WebGL。请用 <code>start-frontend.cmd</code> 以 Chrome 3D
+                模式启动。
+              </>
+            ) : (
+              <>
+                The page hit a browser-side startup error. You can retry directly, or clear the
+                local startup cache and try again.
+              </>
+            )}
+          </p>
+          {!isWebGLPreflightError && (
+            <p className="mt-4 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+              {startupError}
+            </p>
+          )}
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Button onClick={() => window.location.reload()} variant="default">
+              {isWebGLPreflightError ? '重新检测' : 'Retry'}
+            </Button>
+            {!isWebGLPreflightError && (
+              <Button
+                onClick={handleResetLocalData}
+                variant="secondary"
+                disabled={resettingStartupError}
+              >
+                {resettingStartupError ? 'Resetting...' : 'Reset Startup Cache and Retry'}
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="relative h-full w-full">
       {/* Top Navigation Bar */}
@@ -666,12 +831,14 @@ export function Blueprint3DAppBase({ config = {} }: Blueprint3DAppBaseProps) {
       />
 
       {/* Settings Dialog */}
-      <SettingsDialog
-        isOpen={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        onUnitChange={handleUnitChange}
-        isLanguageOption={isLanguageOption}
-      />
+      {settingsOpen && (
+        <SettingsDialog
+          isOpen={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          onUnitChange={handleUnitChange}
+          isLanguageOption={isLanguageOption}
+        />
+      )}
 
       {/* Save Floorplan Dialog */}
       <SaveFloorplanDialog

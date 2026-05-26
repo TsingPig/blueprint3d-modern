@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 import { Utils } from '../core/utils'
-import { Model } from '../model/model'
-import { Scene } from '../model/scene'
-import { Metadata } from './metadata'
+import type { Model } from '../model/model'
+import type { Scene } from '../model/scene'
+import type { Metadata } from './metadata'
 
 /**
  * An Item is an abstract entity for all things placed in the scene,

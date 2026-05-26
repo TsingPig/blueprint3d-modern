@@ -1,10 +1,10 @@
 import * as THREE from 'three'
 import { Utils } from '../core/utils'
 import { Configuration, configSnapToWallDistance } from '../core/configuration'
-import { Model } from '../model/model'
+import type { Model } from '../model/model'
 import { HalfEdge } from '../model/half_edge'
 import { Item } from './item'
-import { Metadata } from './metadata'
+import type { Metadata } from './metadata'
 
 /**
  * A Floor Item is an entity to be placed related to a floor.

@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 import { Utils } from '../core/utils'
-import { Model } from '../model/model'
+import type { Model } from '../model/model'
 import { FloorItem } from './floor_item'
-import { Metadata } from './metadata'
+import type { Metadata } from './metadata'
 import type { Room } from '../model/room'
 
 /**

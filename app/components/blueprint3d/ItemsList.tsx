@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import Image from 'next/image'
 import { ITEMS, type ItemCategory } from '@blueprint3d/constants'
 import { useTranslations } from 'next-intl'
 import { Button } from "@/components/ui/button"
@@ -100,12 +99,11 @@ export function ItemsList({ onItemSelect }: ItemsListProps) {
             className="border border-border rounded hover:border-primary active:border-primary transition-colors p-2 sm:p-2 flex flex-col items-center gap-1.5 sm:gap-2 cursor-pointer bg-card group min-h-[120px] sm:min-h-[140px]"
           >
             <div className="relative w-full aspect-square">
-              <Image
+              <img
                 src={item.image}
                 alt={t(item.key)}
-                fill
-                sizes="(max-width: 768px) 25vw, 10vw"
-                className="object-contain"
+                loading="lazy"
+                className="h-full w-full object-contain"
               />
             </div>
             <div className="flex flex-col items-center gap-0.5 sm:gap-1 w-full">

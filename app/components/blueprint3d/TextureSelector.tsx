@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import { FLOOR_TEXTURES, WALL_TEXTURES } from '@blueprint3d/constants'
 import { useTranslations } from 'next-intl'
 import { useIsMobile } from "@/hooks/use-media-query"
@@ -40,12 +39,11 @@ export function TextureSelector({ type, onTextureSelect }: TextureSelectorProps)
               isMobile ? 'min-h-[60px]' : 'hover:scale-105'
             )}
           >
-            <Image
+            <img
               src={texture.thumbnail}
               alt={texture.name}
-              fill
-              sizes={isMobile ? '120px' : '100px'}
-              className="object-cover"
+              loading="lazy"
+              className="h-full w-full object-cover"
             />
           </button>
         ))}

@@ -1,10 +1,21 @@
 import { NextConfig } from 'next'
+import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
 import createNextIntlPlugin from 'next-intl/plugin'
 import path from 'path'
 
-const nextConfig: NextConfig = {
+const repoRoot = path.resolve(__dirname, '..')
+
+const createNextConfig = (phase: string): NextConfig => ({
   eslint: {
     ignoreDuringBuilds: true
+  },
+
+  distDir: phase === PHASE_DEVELOPMENT_SERVER ? '.next-dev' : '.next',
+
+  outputFileTracingRoot: repoRoot,
+
+  turbopack: {
+    root: repoRoot
   },
 
   experimental: {
@@ -21,12 +32,12 @@ const nextConfig: NextConfig = {
   },
 
   images: {
-    unoptimized:true,
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'cdn-images.archybase.com',
-        pathname: '**'
+        pathname: '/**'
       }
     ]
   },
@@ -64,7 +75,10 @@ const nextConfig: NextConfig = {
 
     return config
   }
-}
+})
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts')
-export default withNextIntl(nextConfig)
+
+export default function nextConfig(phase: string): NextConfig {
+  return withNextIntl(createNextConfig(phase))
+}

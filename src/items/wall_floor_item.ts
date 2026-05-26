@@ -1,7 +1,7 @@
 import * as THREE from 'three'
-import { Model } from '../model/model'
+import type { Model } from '../model/model'
 import { WallItem } from './wall_item'
-import { Metadata } from './metadata'
+import type { Metadata } from './metadata'
 
 /** */
 export class WallFloorItem extends WallItem {
